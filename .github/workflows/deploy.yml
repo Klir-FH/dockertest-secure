@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm ci
+      - run: npm install
       - run: npm test || echo "No tests defined"
 
   build:
@@ -63,53 +63,4 @@ jobs:
       - run: docker pull $IMAGE_NAME@${{ needs.build.outputs.digest }}
       - run: docker stop bestapplication || true
       - run: docker rm bestapplication || true
-      - run: docker run -d --name bestapplication -p 3000:3000 $IMAGE_NAME@${{ needs.build.outputs.digest }}        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE_NAME }}
-
-      - name: Build and push image
-        id: push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-      - name: Generate build provenance attestation
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-name: ${{ env.IMAGE_NAME }}
-          subject-digest: ${{ steps.push.outputs.digest }}
-          push-to-registry: true
-
-  verify-attestation:
-    if: github.event_name == 'push'
-    needs: build-and-attest
-    runs-on: ubuntu-latest
-    steps:
-      - name: Verify attestation
-        env:
-          DIGEST: ${{ needs.build-and-attest.outputs.digest }}
-        run: |
-          gh attestation verify oci://$IMAGE_NAME@$DIGEST --repo ${{ github.repository }}
-
-  deploy-production:
-    if: github.event_name == 'push'
-    needs: [build-and-attest, verify-attestation]
-    runs-on: [self-hosted, linux, x64, prod-runner]
-    environment:
-      name: production
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Log in to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-
-      - name: Deploy verified image
-        env:
-          DIGEST: ${{ needs.build-and-attest.outputs.digest }}
-        run: |
-          ./deploy.sh "$IMAGE_NAME@$DIGEST"
+      - run: docker run -d --name bestapplication -p 3000:3000 $IMAGE_NAME@${{ needs.build.outputs.digest }}

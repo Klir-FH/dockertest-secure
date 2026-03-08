@@ -12,7 +12,8 @@ permissions:
   id-token: write
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/dockertest-secure
+  env:
+  IMAGE_NAME: ghcr.io/klir-fh/dockertest-secure
 
 jobs:
   test:
